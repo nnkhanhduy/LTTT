@@ -1,10 +1,12 @@
 # file: main.py
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 from collections import Counter
 from fano import Fano
 from huffman import Huffman
 from shannon import Shannon
+
+
 def encode(event=None):
     text = entry.get()
     if not text:
@@ -50,45 +52,105 @@ def encode(event=None):
 
     detail_button.config(state=tk.NORMAL, command=show_details)
 
-# Giao diện GUI
+#Giao diện GUI
+
+
+def on_entry_hover(event):
+    entry.configure(background="#e0f7fa")
+
+
+def on_entry_leave(event):
+    entry.configure(background="#ffffff")
+
+
 root = tk.Tk()
-root.title("Mã hóa Shannon-Fano và Huffman")
-root.geometry("600x400")
+root.title("Mã hóa Shannon, Fano và Huffman")
+root.geometry("700x500")
 root.resizable(False, False)
 
+
+primary_color = "#2980b9"
+secondary_color = "#ecf0f1"
+text_color = "#34495e"
+font_family = "Arial"
+
 style = ttk.Style()
-style.configure("TFrame", background="#f0f8ff")
-style.configure("TLabel", background="#f0f8ff", font=("Arial", 12))
-style.configure("TButton", font=("Arial", 10, "bold"))
-style.configure("TCombobox", font=("Arial", 10))
+style.theme_use("clam")
 
-frame = ttk.Frame(root, padding="10")
-frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-label = ttk.Label(frame, text="Nhập chuỗi để mã hóa:")
-label.grid(row=0, column=0, sticky=tk.W, pady=5)
+style.configure("TFrame", background=secondary_color)
+style.configure("TLabel", background=secondary_color, font=(font_family, 12), foreground=text_color)
+style.configure("TButton", font=(font_family, 10, "bold"), foreground="white", background=primary_color, padding=6)
+style.map("TButton", background=[("active", "#2471a3")])
+style.configure("TCombobox", font=(font_family, 10), foreground=text_color)
+style.configure("TEntry", font=(font_family, 12), foreground=text_color)
+style.configure("TText", font=(font_family, 10), foreground=text_color, background="#f0f0f0", borderwidth=1, relief="solid")
 
-entry = ttk.Entry(frame, width=50, font=("Arial", 12))
-entry.grid(row=0, column=1, sticky=tk.W, pady=5)
-entry.bind("<Return>", encode)
+frame = ttk.Frame(root, padding=20)
+frame.pack(fill=tk.BOTH, expand=True)
 
-label_method = ttk.Label(frame, text="Chọn loại mã hóa:")
-label_method.grid(row=1, column=0, sticky=tk.W, pady=5)
+title_label = ttk.Label(frame, text="NHẬP VÀ CHỌN PHƯƠNG PHÁP MÃ HOÁ", font=(font_family, 18, "bold"), foreground=primary_color)
+title_label.pack(pady=(0, 20))
 
-combobox = ttk.Combobox(frame, values=["Fano", "Huffman", "Shannon"], state="readonly", font=("Arial", 10))
-combobox.grid(row=1, column=1, sticky=tk.W, pady=5)
-combobox.set("Chọn loại mã hóa")
+input_frame = ttk.Frame(frame)
+input_frame.pack(fill=tk.X, pady=(0, 10))
 
-button_encode = ttk.Button(frame, text="Mã hóa", command=encode)
-button_encode.grid(row=2, column=1, sticky=tk.W, pady=10)
+label = ttk.Label(input_frame, text="Nhập chuỗi:")
+label.pack(side=tk.LEFT, padx=(0, 10))
+
+entry = ttk.Entry(input_frame, width=40)
+entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+entry.bind("<Return>", lambda e: encode(combobox.get()))
+
+method_frame = ttk.Frame(frame)
+method_frame.pack(fill=tk.X, pady=(0, 10))
+
+label_method = ttk.Label(method_frame, text="Chọn phương pháp:")
+label_method.pack(side=tk.LEFT, padx=(0, 10))
+
+combobox = ttk.Combobox(method_frame, values=["Fano", "Huffman", "Shannon"], state="readonly")
+combobox.pack(side=tk.LEFT, fill=tk.X, expand=True)
+combobox.set("Chọn phương pháp")
+
+button_encode = ttk.Button(frame, text="Mã hóa", command=lambda: encode(combobox.get()))
+button_encode.pack(pady=(10, 20))
+
+output_label = ttk.Label(frame, text="Kết quả:", font=(font_family, 14, "bold"))
+output_label.pack()
+
+output = tk.Text(frame, wrap="word", height=10)
+output.pack(fill=tk.BOTH, expand=True)
 
 detail_button = ttk.Button(frame, text="Xem chi tiết", state=tk.DISABLED)
-detail_button.grid(row=3, column=1, sticky=tk.W, pady=5)
+detail_button.pack(pady=(10,0))
 
-output_label = ttk.Label(frame, text="Kết quả:", font=("Arial", 12, "bold"))
-output_label.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=5)
 
-output = tk.Text(frame, wrap="word", width=70, height=15, font=("Arial", 10), bg="#e6f7ff", fg="#000")
-output.grid(row=5, column=0, columnspan=2, pady=10)
+def copy_to_clipboard():
+    try:
+        root.clipboard_clear()
+        root.clipboard_append(output.get("1.0", tk.END))
+        messagebox.showinfo("Đã sao chép", "Đã sao chép kết quả vào clipboard.")
+    except tk.TclError:
+        messagebox.showerror("Lỗi", "Không thể sao chép kết quả.")
+
+
+copy_button = ttk.Button(frame, text="Sao chép", command=copy_to_clipboard)
+copy_button.pack(side=tk.LEFT, pady=(0, 10), padx=(0,5))
+
+
+def save_to_file():
+    try:
+        filename = tk.filedialog.asksaveasfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt"), ("All files", "*.*")])
+        if filename:
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write(output.get("1.0", tk.END))
+            messagebox.showinfo("Đã lưu", f"Đã lưu kết quả vào file: {filename}")
+    except Exception as e:
+        messagebox.showerror("Lỗi", f"Lỗi khi lưu file: {e}")
+
+
+save_button = ttk.Button(frame, text="Lưu", command=save_to_file)
+save_button.pack(side=tk.LEFT, pady=(0, 10))
+
 
 root.mainloop()
