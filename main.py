@@ -1,4 +1,3 @@
-# file: main.py
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from collections import Counter
@@ -6,6 +5,9 @@ from fano import Fano
 from huffman import Huffman
 from shannon import Shannon
 import math
+
+# Danh sách lưu trữ lịch sử mã hóa
+history = []
 
 def encode(event=None):
     text = entry.get()
@@ -34,8 +36,19 @@ def encode(event=None):
     encoded_text = ''.join([codes[char] for char in text])
     decoded_text = encoder.decode(encoded_text)
 
+    # Hiển thị kết quả mã hóa
     output.delete(1.0, tk.END)
     output.insert(tk.END, f"Chuỗi đã mã hóa: {encoded_text}\n")
+
+    # Lưu vào lịch sử
+    history.append({
+        "input": text,
+        "method": selected_method,
+        "encoded": encoded_text,
+        "decoded": decoded_text,
+        "codes": codes,
+        "frequencies": data
+    })
 
     def show_details():
         detail_window = tk.Toplevel(root)
@@ -47,10 +60,53 @@ def encode(event=None):
 
         detail_text.insert(tk.END, f"Tần số: {data}\n")
         detail_text.insert(tk.END, f"Mã hóa: {codes}\n")
-        detail_text.insert(tk.END, f"Chuỗi đã giải mã: {decoded_text}\n")
         detail_text.config(state=tk.DISABLED)
 
     detail_button.config(state=tk.NORMAL, command=show_details)
+
+def decode_from_bits():
+    encoded_text = bit_entry.get().strip()
+    if not encoded_text:
+        messagebox.showwarning("Cảnh báo", "Vui lòng nhập chuỗi bit cần giải mã.")
+        return
+
+    if not history:
+        messagebox.showwarning("Cảnh báo", "Chưa có dữ liệu mã hóa để sử dụng.")
+        return
+
+    # Lấy thông tin từ lần mã hóa gần nhất
+    last_entry = history[-1]
+    method = last_entry['method']
+    frequencies = last_entry['frequencies']
+
+    # Khởi tạo bộ giải mã tương ứng
+    if method == "Fano":
+        encoder = Fano(frequencies)
+        encoder.fano()
+    elif method == "Huffman":
+        encoder = Huffman(frequencies)
+        encoder.huffman()
+    elif method == "Shannon":
+        encoder = Shannon(frequencies)
+        encoder.shannon_encoding()
+    else:
+        messagebox.showerror("Lỗi", "Không thể giải mã với phương pháp đã chọn.")
+        return
+
+    # Giải mã
+    try:
+        decoded_text = encoder.decode(encoded_text)
+    except Exception as e:
+        messagebox.showerror("Lỗi", f"Lỗi khi giải mã: {e}")
+        return
+
+    # Hiển thị kết quả giải mã
+    output.delete(1.0, tk.END)
+    output.insert(tk.END, f"Chuỗi giải mã: {decoded_text}\n")
+
+def clear_output():
+    output.delete("1.0", tk.END)
+    messagebox.showinfo("Thông báo", "Bảng kết quả đã được xóa.")
 
 def calculate_compression_ratio():
     text = entry.get()
@@ -95,11 +151,26 @@ def calculate_compression_ratio():
     result_text.insert(tk.END, f"Hệ số nén: {compression_ratio:.2f}\n")
     result_text.config(state=tk.DISABLED)
 
-def on_entry_hover(event):
-    entry.configure(background="#e0f7fa")
+def view_history():
+    if not history:
+        messagebox.showinfo("Lịch sử", "Chưa có lịch sử mã hóa.")
+        return
 
-def on_entry_leave(event):
-    entry.configure(background="#ffffff")
+    history_window = tk.Toplevel(root)
+    history_window.title("Lịch sử mã hóa")
+    history_window.geometry("600x400")
+
+    text_area = tk.Text(history_window, wrap="word", font=("Arial", 10), bg="#f0f0f0", fg="#000")
+    text_area.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    for i, record in enumerate(history, start=1):
+        text_area.insert(tk.END, f"Lần {i}:\n")
+        text_area.insert(tk.END, f"- Chuỗi gốc: {record['input']}\n")
+        text_area.insert(tk.END, f"- Phương pháp: {record['method']}\n")
+        text_area.insert(tk.END, f"- Chuỗi mã hóa: {record['encoded']}\n")
+        text_area.insert(tk.END, f"- Tần số: {record['frequencies']}\n")
+        text_area.insert(tk.END, f"- Mã: {record['codes']}\n\n")
+    text_area.config(state=tk.DISABLED)
 
 root = tk.Tk()
 root.title("Mã hóa Shannon, Fano và Huffman")
@@ -134,6 +205,18 @@ input_frame.pack(fill=tk.X, pady=(0, 10))
 label = ttk.Label(input_frame, text="Nhập chuỗi:")
 label.pack(side=tk.LEFT, padx=(0, 10))
 
+# Thêm khung chứa nhãn và ô nhập liệu trên cùng một hàng
+bit_frame = ttk.Frame(frame)
+bit_frame.pack(fill=tk.X, pady=(10, 5))
+
+bit_label = ttk.Label(bit_frame, text="Nhập chuỗi bit:", anchor='w')
+bit_label.pack(side=tk.LEFT, padx=(0, 10))
+
+bit_entry = ttk.Entry(bit_frame, width=40)
+bit_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+
+
 entry = ttk.Entry(input_frame, width=40)
 entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 entry.bind("<Return>", lambda e: encode(combobox.get()))
@@ -154,8 +237,14 @@ button_frame.pack(fill=tk.X, pady=(10, 20))
 button_encode = ttk.Button(button_frame, text="Mã hóa", command=lambda: encode(combobox.get()))
 button_encode.pack(side=tk.LEFT, padx=(5, 5))
 
+decode_bit_button = ttk.Button(button_frame, text="Giải mã", command=decode_from_bits)
+decode_bit_button.pack(side=tk.LEFT, padx=(5, 5))
+
 detail_button = ttk.Button(button_frame, text="Xem chi tiết", state=tk.DISABLED)
 detail_button.pack(side=tk.LEFT, padx=(5, 5))
+
+history_button = ttk.Button(button_frame, text="Xem lịch sử", command=view_history)
+history_button.pack(side=tk.LEFT, padx=(5, 5))
 
 compression_button = ttk.Button(button_frame, text="Tính hệ số nén", command=calculate_compression_ratio)
 compression_button.pack(side=tk.LEFT, padx=(5, 5))
@@ -192,5 +281,8 @@ def save_to_file():
 
 save_button = ttk.Button(action_frame, text="Lưu", command=save_to_file)
 save_button.pack(side=tk.LEFT, padx=(5, 5))
+
+clear_button = ttk.Button(action_frame, text="Xóa", command=clear_output)
+clear_button.pack(side=tk.LEFT, padx=(5, 5))
 
 root.mainloop()
